@@ -49,9 +49,10 @@ class mySubSpectralNorm(nn.Module):
 
 
 class myQSubSpectralNorm(nn.Module):
-    def __init__(self, C, S, eps=1e-5, qlistm=None,qlistb=None):
+    def __init__(self, C, S, qlistm=None,qlistb=None):
         super(myQSubSpectralNorm, self).__init__()
         self.S = S
+        eps=1e-5
         self.eps = eps
         self.bn = MyQBatchnorm2d(C*S, qlistm, qlistb)
 
@@ -520,7 +521,7 @@ class myQBCResNet(torch.nn.Module):
         self.weightq = [1,8,6]
         self.actq_sram = [1,8,4]
         self.actq = [1,16,9]
-        self.bnmq = [1,16,9]
+        self.bnmq = [1,8,4]
         self.bnbq = [1,16,9]
         self.conv1 = QuantConv(1, 16, 5, stride=(2, 1), padding=(2, 2), qlist = self.weightq)
 

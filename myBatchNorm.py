@@ -100,7 +100,7 @@ class MyBatchnorm2d(torch.nn.Module):
 
 
 class MyQBatchnorm2d(torch.nn.Module):
-    def __init__(self,num_features, momentum=0.1, qlistm=None, qlistb=None):
+    def __init__(self,num_features,  qlistm=None, qlistb=None):
         '''
         quantized batchnormalization 
         :param num_features:
@@ -111,7 +111,8 @@ class MyQBatchnorm2d(torch.nn.Module):
         shape = (1, num_features, 1, 1)
         self.weight = torch.nn.Parameter(torch.ones(shape).float())
         self.bias = torch.nn.Parameter(torch.zeros(shape).float())
-        self.qlist = qlist
+        self.qlistm = qlistm
+        self.qlistb = qlistb
         #register_buffer相当于requires_grad=False的Parameter，所以两种方法都可以
         #方法一
         self.register_buffer('running_mean',torch.zeros(shape))
@@ -121,7 +122,7 @@ class MyQBatchnorm2d(torch.nn.Module):
         # self.running_mean = torch.nn.Parameter(torch.zeros(num_features),requires_grad=False)
         # self.running_var = torch.nn.Parameter(torch.ones(num_features),requires_grad=False)
         # self.num_batches_tracked = torch.nn.Parameter(torch.tensor(0),requires_grad=False)
- 
+        momentum=0.1
         self.momentum = momentum
  
     def forward(self,x):
@@ -146,8 +147,10 @@ class MyQBatchnorm2d(torch.nn.Module):
         else: #eval模式
             mean_bn = torch.autograd.Variable(self.running_mean)
             var_bn = torch.autograd.Variable(self.running_var)
-            bnbias = - mean_bn * self.weight / torch.sqrt(var_bn + eps) + self.bias
             multiplier =  self.weight / torch.sqrt(var_bn + eps) 
+            bnbias = - mean_bn * self.weight / torch.sqrt(var_bn + eps) + self.bias
+            multiplier = torchFixpoint(multiplier, self.qlistm)  
+            bnbias = torchFixpoint(bnbias, self.qlistb)
             results = multiplier * x + bnbias
 
         return results

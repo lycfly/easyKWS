@@ -4,7 +4,7 @@ from nets import *
 class Config(object):
     data_dir   = '../autodl-tmp/datasets'
     model_path = '../autodl-tmp/model'
-    log_path =   '../autodl-tmp/training_logs'
+    log_path =   '../tf-logs'
     dataset_name = 'GSDC_v01'
     words = ["wow", "marvin"]
     is_testing = False
