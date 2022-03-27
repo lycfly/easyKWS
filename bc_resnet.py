@@ -47,6 +47,24 @@ class mySubSpectralNorm(nn.Module):
 
         return x.view(N, C, F, T)
 
+
+class myQSubSpectralNorm(nn.Module):
+    def __init__(self, C, S, eps=1e-5, qlistm=None,qlistb=None):
+        super(myQSubSpectralNorm, self).__init__()
+        self.S = S
+        self.eps = eps
+        self.bn = MyQBatchnorm2d(C*S, qlistm, qlistb)
+
+    def forward(self, x):
+        # x: input features with shape {N, C, F, T}
+        # S: number of sub-bands
+        N, C, F, T = x.size()
+        x = x.view(N, C * self.S, F // self.S, T)
+
+        x = self.bn(x)
+
+        return x.view(N, C, F, T)
+
 class BroadcastedBlock(nn.Module):
     def __init__(
             self,
@@ -381,6 +399,9 @@ class myQBroadcastedBlock(nn.Module):
             weightq = None,
             actq = None,
             actq_sram = None,
+            bnmq = None,
+            bnbq = None,
+
     ) -> None:
         super(myQBroadcastedBlock, self).__init__()
         self.actq = actq
@@ -388,11 +409,11 @@ class myQBroadcastedBlock(nn.Module):
         self.freq_dw_conv = QuantConv(planes, planes, kernel_size=(3, 1), padding=(1, 0), groups=planes,
                                       dilation=1, stride=stride, bias=False, qlist = weightq)
         #self.ssn1 = SubSpectralNorm(planes, sub)
-        self.ssn1 = mySubSpectralNorm(planes, sub)
+        self.ssn1 = myQSubSpectralNorm(planes, sub, bnmq, bnbq)
         self.temp_dw_conv = QuantConv(planes, planes, kernel_size=(1, 3), padding=temp_pad, groups=planes,
                                       dilation=dilation, stride=1, bias=False, qlist = weightq)
         #self.bn = nn.BatchNorm2d(planes)
-        self.bn = MyBatchnorm2d(planes)
+        self.bn = MyQBatchnorm2d(planes, bnmq, bnbq)
         self.relu = nn.ReLU(inplace=True)
         #self.swish = nn.SiLU()
         self.swish = nn.ReLU()
@@ -444,6 +465,8 @@ class myQTransitionBlock(nn.Module):
             weightq = None,
             actq = None,
             actq_sram = None,
+            bnmq = None,
+            bnbq = None,
     ) -> None:
         super(myQTransitionBlock, self).__init__()
         self.actq = actq
@@ -451,11 +474,11 @@ class myQTransitionBlock(nn.Module):
         self.freq_dw_conv = QuantConv(planes, planes, kernel_size=(3, 1), padding=(1, 0), groups=planes,
                                       stride=stride, dilation=dilation, bias=False, qlist = weightq)
         #self.ssn = SubSpectralNorm(planes, sub)
-        self.ssn = mySubSpectralNorm(planes, sub)
+        self.ssn = myQSubSpectralNorm(planes, sub, bnmq, bnbq)
         self.temp_dw_conv = QuantConv(planes, planes, kernel_size=(1, 3), padding=temp_pad, groups=planes,
                                       dilation=dilation, stride=1, bias=False, qlist = weightq)
         #self.bn2 = nn.BatchNorm2d(planes)
-        self.bn2 = MyBatchnorm2d(planes)
+        self.bn2 = MyQBatchnorm2d(planes, bnmq, bnbq)
 
         self.relu = nn.ReLU(inplace=True)
         #self.swish = nn.SiLU()
@@ -497,23 +520,25 @@ class myQBCResNet(torch.nn.Module):
         self.weightq = [1,8,6]
         self.actq_sram = [1,8,4]
         self.actq = [1,16,9]
+        self.bnmq = [1,16,9]
+        self.bnbq = [1,16,9]
         self.conv1 = QuantConv(1, 16, 5, stride=(2, 1), padding=(2, 2), qlist = self.weightq)
 
-        self.block1_1 = myQBroadcastedBlock(planes=16, sub=5, temp_pad=(0, 1), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram)
-        self.block1_2 = myQBroadcastedBlock(planes=16, sub=5, temp_pad=(0, 1), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram)
+        self.block1_1 = myQBroadcastedBlock(planes=16, sub=5, temp_pad=(0, 1), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram, bnmq=self.bnmq, bnbq=self.bnbq)
+        self.block1_2 = myQBroadcastedBlock(planes=16, sub=5, temp_pad=(0, 1), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram, bnmq=self.bnmq, bnbq=self.bnbq)
 
-        self.block2_1 = myQTransitionBlock (planes=16, sub=5, dilation=(1, 2), temp_pad=(0, 2), stride=(2, 1), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram)
-        self.block2_2 = myQBroadcastedBlock(planes=16, sub=5, dilation=(1, 2), temp_pad=(0, 2), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram)
-        self.block2_3 = myQBroadcastedBlock(planes=16, sub=5, dilation=(1, 2), temp_pad=(0, 2), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram)
+        self.block2_1 = myQTransitionBlock (planes=16, sub=5, dilation=(1, 2), temp_pad=(0, 2), stride=(2, 1), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram, bnmq=self.bnmq, bnbq=self.bnbq)
+        self.block2_2 = myQBroadcastedBlock(planes=16, sub=5, dilation=(1, 2), temp_pad=(0, 2), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram, bnmq=self.bnmq, bnbq=self.bnbq)
+        self.block2_3 = myQBroadcastedBlock(planes=16, sub=5, dilation=(1, 2), temp_pad=(0, 2), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram, bnmq=self.bnmq, bnbq=self.bnbq)
 
-        self.block3_1 = myQTransitionBlock( planes=16, sub=5, dilation=(1, 4), temp_pad=(0, 4) ,stride=(2, 1), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram)
-        self.block3_2 = myQBroadcastedBlock(planes=16, sub=5, dilation=(1, 4), temp_pad=(0, 4), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram)
-        self.block3_3 = myQBroadcastedBlock(planes=16, sub=5, dilation=(1, 4), temp_pad=(0, 4), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram)
-        self.block3_4 = myQBroadcastedBlock(planes=16, sub=5, dilation=(1, 4), temp_pad=(0, 4), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram)
+        self.block3_1 = myQTransitionBlock( planes=16, sub=5, dilation=(1, 4), temp_pad=(0, 4) ,stride=(2, 1), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram, bnmq=self.bnmq, bnbq=self.bnbq)
+        self.block3_2 = myQBroadcastedBlock(planes=16, sub=5, dilation=(1, 4), temp_pad=(0, 4), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram, bnmq=self.bnmq, bnbq=self.bnbq)
+        self.block3_3 = myQBroadcastedBlock(planes=16, sub=5, dilation=(1, 4), temp_pad=(0, 4), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram, bnmq=self.bnmq, bnbq=self.bnbq)
+        self.block3_4 = myQBroadcastedBlock(planes=16, sub=5, dilation=(1, 4), temp_pad=(0, 4), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram, bnmq=self.bnmq, bnbq=self.bnbq)
 
-        self.block4_1 = myQBroadcastedBlock(planes=16, sub=5, dilation=(1, 8), temp_pad=(0, 8), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram)
-        self.block4_2 = myQBroadcastedBlock(planes=16, sub=5, dilation=(1, 8), temp_pad=(0, 8), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram)
-        self.block4_3 = myQBroadcastedBlock(planes=16, sub=5, dilation=(1, 8), temp_pad=(0, 8), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram)
+        self.block4_1 = myQBroadcastedBlock(planes=16, sub=5, dilation=(1, 8), temp_pad=(0, 8), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram, bnmq=self.bnmq, bnbq=self.bnbq)
+        self.block4_2 = myQBroadcastedBlock(planes=16, sub=5, dilation=(1, 8), temp_pad=(0, 8), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram, bnmq=self.bnmq, bnbq=self.bnbq)
+        self.block4_3 = myQBroadcastedBlock(planes=16, sub=5, dilation=(1, 8), temp_pad=(0, 8), weightq=self.weightq, actq=self.actq, actq_sram=self.actq_sram, bnmq=self.bnmq, bnbq=self.bnbq)
 
         self.conv4 = QuantConv(16, label_num, (5,1), bias=False, qlist=self.weightq)
         self.writer = None
