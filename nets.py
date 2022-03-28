@@ -4,6 +4,11 @@ from Dscnn import *
 
 from torchsummary import summary
 
+def fix_bn_my(m):
+    classname = m.__class__.__name__
+    if classname.find('MyQBatchnorm2d') != -1:
+        m.eval()
+
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else "cpu")
     model_info = [

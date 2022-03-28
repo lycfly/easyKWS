@@ -1,6 +1,8 @@
 import torch
 from qnn import torchFixpoint
 
+
+
 class MyBatchnorm1d(torch.nn.Module):
     def __init__(self,num_features,momentum=0.1):
         '''

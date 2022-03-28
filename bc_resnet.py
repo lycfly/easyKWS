@@ -169,7 +169,7 @@ class TransitionBlock(nn.Module):
 
 
 class BCResNet(torch.nn.Module):
-    def __init__(self, label_num=12):
+    def __init__(self, label_num=12, finetune = False):
         super(BCResNet, self).__init__()
         self.conv1 = nn.Conv2d(1, 16, 5, stride=(2, 1), padding=(2, 2))
         self.block1_1 = TransitionBlock(16, 8)
@@ -330,7 +330,7 @@ class myTransitionBlock(nn.Module):
         return out
 
 class myBCResNet(torch.nn.Module):
-    def __init__(self, label_num=12):
+    def __init__(self, label_num=12, finetune = False):
         super(myBCResNet, self).__init__()
         self.conv1 = nn.Conv2d(1, 16, 5, stride=(2, 1), padding=(2, 2))
 
@@ -516,12 +516,15 @@ class myQTransitionBlock(nn.Module):
         return out
 
 class myQBCResNet(torch.nn.Module):
-    def __init__(self, label_num=12):
+    def __init__(self, label_num=12, finetune = False):
         super(myQBCResNet, self).__init__()
         self.weightq = [1,8,6]
         self.actq_sram = [1,8,4]
         self.actq = [1,16,9]
-        self.bnmq = [1,8,4]
+        if finetune:
+            self.bnmq = [1,8,4]
+        else:
+            self.bnmq = [1,16,9]
         self.bnbq = [1,16,9]
         self.conv1 = QuantConv(1, 16, 5, stride=(2, 1), padding=(2, 2), qlist = self.weightq)
 

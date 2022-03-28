@@ -47,14 +47,20 @@ class Config(object):
 
     'unknown_ratio'   :   0.2,
 
-    'BATCH_SIZE'      :   128,
     'epochs'          :   100, #250
+    'BATCH_SIZE'      :   128,
     'learning_rate'   :   0.1,
     'warmup'          :   True,
 
     'is_1d'           :   False,
     'reshape_size'    :   None,
- 
+
+    'use_finetune'    :   True,
+    'epochs_ft'       :   5, 
+    'learning_rate_ft':   0.0001,
+
+    'send_msg'        :   True,
+
     'feature_cfg'     :  {
         'feature_use_gpu' : False,
         'use_quantize'    : False,
