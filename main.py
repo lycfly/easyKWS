@@ -48,4 +48,4 @@ if Config.model_config['use_finetune']:
 
     
 
-os.system('shutdown /s /t 0')
+#os.system('shutdown /s /t 0')

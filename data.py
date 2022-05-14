@@ -15,7 +15,7 @@ from quantize_audio_feature import qFeature, log10fx
 SR=16000
 
 class SpeechDataset(Dataset):
-    def __init__(self, noise_path, mode, label_words_dict, wav_list, add_noise, preprocess_fun, feature_cfg = {}, sr=SR, resize_shape=None, is_1d=False):
+    def __init__(self, noise_path, mode, label_words_dict, wav_list, add_noise, preprocess_fun, feature_cfg = {}, sr=SR, resize_shape=None, is_1d=False, ppq_enable=False):
         """Args:
                 mode: train or evaluate or test
                 label_words_dict: a dict of words for labels
@@ -36,7 +36,7 @@ class SpeechDataset(Dataset):
         self.preprocess_fun = preprocess_fun
         self.feature_cfg = feature_cfg
         self.qlist =  feature_cfg['qlist']
-
+        self.ppq_enable = ppq_enable
         # read all background noise here
         self.noise_path = noise_path
         self.background_noises = [librosa.load(x, sr=self.sr)[0] for x in glob(os.path.join(self.noise_path,"*.wav"))]
@@ -118,8 +118,10 @@ class SpeechDataset(Dataset):
 
             label = self.label_words_dict[self.wav_list[idx].split("/")[-2]] if self.wav_list[idx].split(
                 "/")[-2] in self.label_words_dict else len(self.label_words_dict)
-
-            return {'spec': wav_tensor, 'id': self.wav_list[idx], 'label': label}
+            if self.ppq_enable:
+                return wav_tensor
+            else:
+                return {'spec': wav_tensor, 'id': self.wav_list[idx], 'label': label}
 
         else:
             """generates silence here"""
@@ -134,7 +136,10 @@ class SpeechDataset(Dataset):
                 wav_tensor = torch.from_numpy(wav_numpy).float()
             if not self.is_1d:
                 wav_tensor = wav_tensor.unsqueeze(0)
-            return {'spec': wav_tensor, 'id': 'silence', 'label': len(self.label_words_dict) + 1}
+            if self.ppq_enable:
+                return wav_tensor
+            else:
+                return {'spec': wav_tensor, 'id': 'silence', 'label': len(self.label_words_dict) + 1}
 
 
 def get_label_dict(words):
@@ -214,7 +219,7 @@ def preprocess_mel_my(data, sr=SR, n_mels=40, n_fft=480, win_length=480, hop_len
         window = torch.hann_window
         flip_num = int(win_length/2)
         mel_spectrogram = torchaudio.transforms.MelSpectrogram(
-            sample_rate = sample_rate,
+            sample_rate = sr,
             n_fft = flip_num,
             win_length = flip_num,
             hop_length = flip_num,

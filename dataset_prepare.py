@@ -27,11 +27,14 @@ def download_GSC(config):
     if not os.path.exists(dataset_path):
         os.makedirs(dataset_path)
     # download data
-    if not os.path.exists(os.path.join(dataset_path, 'speech_commands_v0.0{}.tar.gz'.format(version))):
+    if os.path.exists(tar_path):
+        print('Skipping download GSC dataset ...')
+    elif os.path.exists(os.path.join(dataset_path, 'speech_commands_v0.0{}.tar.gz'.format(version))):
+        print('Skipping download GSC dataset ...')
+    else:    
         print('Downloading GSC dataset ...')
         os.system(f'wget -P {dataset_path} '+ 'http://download.tensorflow.org/data/speech_commands_v0.0%s.tar.gz' % (version))
-    else:
-        print('Skipping download GSC dataset ...')
+    
     if not os.path.exists(tar_path): 
         os.makedirs(tar_path)      
         print('Extracing GSC dataset ...')

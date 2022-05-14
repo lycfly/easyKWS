@@ -1,10 +1,10 @@
 {
     "name": "My Server",
-    "host": "region-41.autodl.com",
+    "host": "region-11.autodl.com",
     "protocol": "sftp",
-    "port": 30569,
+    "port": 16252,
     "username": "root",
-    "password": "lLvo0GQ1MD",
+    "password": "YK3+X1pf+N",
     "remotePath": "/root/kws",
     "uploadOnSave": true,
     "useTempFile": false

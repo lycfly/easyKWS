@@ -109,7 +109,7 @@ class BroadcastedBlock(nn.Module):
         out = self.channel_drop(out)
         ############################
 
-        out = out + identity + auxilary
+        out = identity + auxilary + out
         out = self.relu(out)
 
         return out
@@ -252,8 +252,7 @@ class myBroadcastedBlock(nn.Module):
                                       dilation=dilation, stride=1, bias=False)
         self.bn = nn.BatchNorm2d(planes)
         self.relu = nn.ReLU(inplace=True)
-        self.channel_drop = nn.Dropout2d(p=0.0) # 0.5
-        self.swish = nn.SiLU()
+        self.swish = nn.ReLU()
         self.conv1x1 = nn.Conv2d(planes, planes, kernel_size=(1, 1), bias=False)
 
     def forward(self, x: Tensor) -> Tensor:
@@ -274,10 +273,9 @@ class myBroadcastedBlock(nn.Module):
         out = self.bn(out)
         out = self.swish(out)
         out = self.conv1x1(out)
-        out = self.channel_drop(out)
         ############################
 
-        out = out + identity + auxilary
+        out = identity + auxilary + out
         out = self.relu(out)
 
         return out
@@ -287,7 +285,6 @@ class myTransitionBlock(nn.Module):
 
     def __init__(
             self,
-            inplanes: int,
             sub : int,
             planes: int,
             dilation=1,
@@ -304,7 +301,7 @@ class myTransitionBlock(nn.Module):
                                       dilation=dilation, stride=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
         self.relu = nn.ReLU(inplace=True)
-        self.swish = nn.SiLU()
+        self.swish = nn.ReLU()
         self.conv1x1_2 = nn.Conv2d(planes, planes, kernel_size=(1, 1), bias=False)
 
     def forward(self, x: Tensor) -> Tensor:
@@ -348,7 +345,7 @@ class myBCResNet(torch.nn.Module):
 
         self.block4_1 = myBroadcastedBlock(planes=16, sub=5, dilation=(1, 8), temp_pad=(0, 8))
         self.block4_2 = myBroadcastedBlock(planes=16, sub=5, dilation=(1, 8), temp_pad=(0, 8))
-        self.block4_3 = myBroadcastedBlock(planes=16, sub=5, dilation=(1, 2), temp_pad=(0, 8))
+        self.block4_3 = myBroadcastedBlock(planes=16, sub=5, dilation=(1, 8), temp_pad=(0, 8))
 
         self.conv4 = nn.Conv2d(16, label_num, (5,1), bias=False)
 
@@ -373,9 +370,9 @@ class myBCResNet(torch.nn.Module):
         out = self.block3_4(out)
 
         print_shape('BLOCK4 INPUT SHAPE:', out.shape, ifprint)
+        out = self.block4_1(out)
         out = self.block4_2(out)
         out = self.block4_3(out)
-        out = self.block4_4(out)
 
         out = out.mean(-1, keepdim=True)
 
@@ -522,7 +519,7 @@ class myQBCResNet(torch.nn.Module):
         self.actq_sram = [1,8,4]
         self.actq = [1,16,9]
         if finetune:
-            self.bnmq = [1,8,4]
+            self.bnmq = [1,8,1]
         else:
             self.bnmq = [1,16,9]
         self.bnbq = [1,16,9]

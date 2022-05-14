@@ -32,12 +32,15 @@ def get_lr(optimizer):
     return optimizer.param_groups[0]['lr']
 
 def train_one_epoch(global_step, epoch, iters, speechmodel, train_dataloader,
-                    loss_fn, optimizer, warmup, lr_scheduler, writer):
+                    loss_fn, optimizer, warmup, lr_scheduler, writer, fixbn):
     total_correct = 0
     num_labels = 0
     it = 0
     running_loss = 0.0
     speechmodel.train()
+    if fixbn:
+        speechmodel.apply(fix_bn_my)
+
     pbar = tqdm(train_dataloader,unit="audios", unit_scale=train_dataloader.batch_size, ncols=150)
 
     for i, batch_data in enumerate(pbar):
@@ -227,7 +230,7 @@ def train_model(log_path, model_path, data_path, noise_path, words, num_workers,
         optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, speechmodel.parameters()),
                                     lr=learning_rate, momentum=0.9, weight_decay=0.00001)
         lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones[20,70], gamma=0.1)
-
+    fixbn = False
     since = time()
     global_step = 0
     best_accuracy = 0
@@ -237,7 +240,7 @@ def train_model(log_path, model_path, data_path, noise_path, words, num_workers,
         for e in range(epochs):
             print("epoch %3d with lr=%.03e" % (e, get_lr(optimizer)))
             speechmodel.ifwriter = False
-            global_step = train_one_epoch(global_step, e, iters, speechmodel, trainloader,loss_fn, optimizer, warmup, lr_scheduler, writer)
+            global_step = train_one_epoch(global_step, e, iters, speechmodel, trainloader,loss_fn, optimizer, warmup, lr_scheduler, writer, fixbn)
             best_accuracy, best_loss, epoch_loss = valid(e, speechmodel, valloader, loss_fn, words, CODER, best_accuracy, best_loss, model_path_full, writer)
 
             time_elapsed = time() - since
@@ -334,12 +337,15 @@ def finetune(log_path, model_path, data_path, noise_path, words, num_workers, ta
     speechmodel = get_model(model=model_class, m=MGPU, pretrained=pretrained_path, label_num=len(words)+2, finetune = True)
     speechmodel = speechmodel.cuda()
     speechmodel.train()
+    fixbn = True
     speechmodel.apply(fix_bn_my) # fix batchnorm
     speechmodel.writer = writer
 
     
-    optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, speechmodel.parameters()),
-                                lr=learning_rate_ft, momentum=0.9, weight_decay=0.00001)
+    #optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, speechmodel.parameters()),
+    #                            lr=learning_rate_ft, momentum=0.9, weight_decay=0.00001)
+    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, speechmodel.parameters()),
+                                lr=learning_rate_ft)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=10, gamma=0.1, last_epoch=-1)
 
     since = time()
@@ -351,7 +357,7 @@ def finetune(log_path, model_path, data_path, noise_path, words, num_workers, ta
         for e in range(epochs_ft):
             print("epoch %3d with lr=%.03e" % (e, get_lr(optimizer)))
             speechmodel.ifwriter = False
-            global_step = train_one_epoch(global_step, e, iters, speechmodel, trainloader,loss_fn, optimizer, False, lr_scheduler, writer)
+            global_step = train_one_epoch(global_step, e, iters, speechmodel, trainloader,loss_fn, optimizer, False, lr_scheduler, writer, fixbn)
             best_accuracy, best_loss, epoch_loss = valid(e, speechmodel, valloader, loss_fn, words, CODER, best_accuracy, best_loss, finetune_path, writer) #finetune path
 
             time_elapsed = time() - since

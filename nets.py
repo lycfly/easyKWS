@@ -21,6 +21,6 @@ if __name__ == "__main__":
         {'name':'q-mybc-resnet', 'net':myQBCResNet},  #6
 
     ]
-    model = model_info[6]
+    model = model_info[4]
     net = model['net'](label_num=4).to(device)
     summary(net, input_size = (1,40,61))

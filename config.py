@@ -2,7 +2,8 @@ import os
 from nets import *
 
 class Config(object):
-    data_dir   = '../autodl-tmp/datasets'
+    data_dir   = '/root'  # autodl 
+    #data_dir   = '../autodl-tmp/datasets'
     model_path = '../autodl-tmp/model'
     log_path =   '../tf-logs'
     dataset_name = 'GSDC_v01'
@@ -22,7 +23,7 @@ class Config(object):
     noise_path = noise_path['GSDC']             # path cotain noise wavs
     
 
-    model_id   = 6
+    model_id   = 4
     model_info = [
         {'name':'resnet', 'net':ResModel},            #0
         {'name':'bc-resnet', 'net':BCResNet},         #1
@@ -37,17 +38,22 @@ class Config(object):
     model = model_info[model_id]
 
     model_config = {
+
+    'use_finetune'    :   False,
+    'epochs_ft'       :   5, 
+    'learning_rate_ft':   0.0001,
+
     'log_path'   :   log_path,
     'model_path' :   model_path,
     'data_path'  :   dataset['path'],
     'noise_path' :   noise_path,
-    'num_workers':   50,
+    'num_workers':   128,
     'model_class':   model['net'],
     'CODER'      :   model['name'],
 
     'unknown_ratio'   :   0.2,
 
-    'epochs'          :   100, #250
+    'epochs'          :   50, #250
     'BATCH_SIZE'      :   128,
     'learning_rate'   :   0.1,
     'warmup'          :   True,
@@ -55,15 +61,13 @@ class Config(object):
     'is_1d'           :   False,
     'reshape_size'    :   None,
 
-    'use_finetune'    :   True,
-    'epochs_ft'       :   5, 
-    'learning_rate_ft':   0.0001,
+
 
     'send_msg'        :   True,
 
     'feature_cfg'     :  {
         'feature_use_gpu' : False,
-        'use_quantize'    : False,
+        'use_quantize'    : True,
         'n_fft'           : 256,
         'sr'              : 16000,
         'win_length'      : 256,
